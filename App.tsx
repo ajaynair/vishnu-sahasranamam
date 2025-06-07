@@ -264,6 +264,72 @@ const AudioPlayerModal: React.FC<{
   );
 };
 
+const AboutMeModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    closeButtonRef.current?.focus({ preventScroll: true });
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+      <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="about-modal-title"
+          onClick={onClose}
+      >
+        <div
+            ref={modalRef}
+            className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex justify-between items-center p-4 border-b border-gray-200">
+            <h2 id="about-modal-title" className="text-xl font-semibold text-orange-700">
+              <span className="emoji" role="img" aria-label="Folded hands">🙏</span> About This App
+            </h2>
+            <button
+                ref={closeButtonRef}
+                onClick={onClose}
+                className="p-2 text-gray-600 hover:text-orange-600 rounded-full hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                aria-label="Close about this app"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-6 overflow-y-auto space-y-4 text-gray-700 text-sm leading-relaxed">
+            <p>
+              This application was lovingly crafted by <strong>Ajay Nair</strong>.
+              I wanted to create a single place for everything related to Vishnu Sahasranamam, including audio and its text in multiple Indian languages.
+              A personal project, brought to life with dedication <span className="emoji" role="img" aria-label="Sparkles">✨</span> (and many cups of <span className="emoji" role="img" aria-label="Coffee">☕</span>).
+            </p>
+            <p>
+              The mission is to provide a serene and user-friendly platform for devotees to read, listen, and immerse themselves in the Vishnu Sahasranamam, across various languages.
+              May it aid in your spiritual practice and bring peace. <span className="emoji" role="img" aria-label="Lotus flower">🪷</span>
+            </p>
+            <p>
+              If you have any feedback, encounter a bug <span className="emoji" role="img" aria-label="Bug">🐛</span>, or wish to share your thoughts,
+              please feel free to reach out at: <a href="mailto:ajaynair59@gmail.com" className="text-orange-500 hover:text-orange-600 underline">ajaynair59 [at] gmail [dot] com</a>.
+            </p>
+            <p className="mt-2">Wishing you a blessed experience. Hari Om! <span className="emoji" role="img" aria-label="Smiling face with folded hands">😇</span></p>
+          </div>
+        </div>
+      </div>
+  );
+};
+
 
 const App: React.FC = () => {
   const englishLang = CONTENT_LANGUAGES.find(lang => lang.id === 'english') || CONTENT_LANGUAGES[0];
@@ -274,6 +340,7 @@ const App: React.FC = () => {
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
   const [fontSize, setFontSize] = useState(1.25);
   const [areControlsVisible, setAreControlsVisible] = useState(true);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
 
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -289,17 +356,20 @@ const App: React.FC = () => {
   }, [isSeeking]);
 
   useEffect(() => {
-    if (sahasranamamTextRef.current) {
-      const headerHeight = stickyControlsRef.current?.offsetHeight || 80;
+    if (sahasranamamTextRef.current && stickyControlsRef.current) {
+      const headerHeight = stickyControlsRef.current.offsetHeight;
       const elementTop = sahasranamamTextRef.current.getBoundingClientRect().top + window.pageYOffset;
 
-      if (sahasranamamTextRef.current.getBoundingClientRect().top < headerHeight ||
-          selectedLanguage.id !== (CONTENT_LANGUAGES.find(lang => lang.id === 'english') || CONTENT_LANGUAGES[0]).id ||
-          window.scrollY > (elementTop - headerHeight -20) + 5 ||
-          window.scrollY < (elementTop - headerHeight -20) - 5
-      ) {
+      const currentScrollY = window.scrollY;
+      const targetScrollY = Math.max(0, elementTop - headerHeight - 20);
+
+      const isInitialNonDefaultLanguage = selectedLanguage.id !== (CONTENT_LANGUAGES.find(lang => lang.id === 'english') || CONTENT_LANGUAGES[0]).id;
+      const isTextOutOfView = sahasranamamTextRef.current.getBoundingClientRect().top < headerHeight ||
+          Math.abs(currentScrollY - targetScrollY) > 5;
+
+      if (isTextOutOfView || (isInitialNonDefaultLanguage && currentScrollY !== targetScrollY)) {
         window.scrollTo({
-          top: Math.max(0, elementTop - headerHeight - 20),
+          top: targetScrollY,
           behavior: 'smooth'
         });
       }
@@ -445,7 +515,6 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (selectedLanguage.id !== 'english') {
-      // For non-English, split by escaped newline and render each part in a <p>
       return selectedLanguage.contentText.split('\\n').map((line, index) => (
           <p key={index} className="leading-relaxed my-1">
             {line}
@@ -453,7 +522,6 @@ const App: React.FC = () => {
       ));
     }
 
-    // English specific rendering
     const lines = selectedLanguage.contentText.split('\\n');
     return lines.map((line, index) => {
       const trimmedLine = line.trim();
@@ -579,8 +647,7 @@ const App: React.FC = () => {
           <main className="w-full max-w-5xl bg-white rounded-xl shadow-xl">
             {/* Sticky Controls Panel */}
             <div ref={stickyControlsRef} className="sticky top-0 z-30 bg-orange-50/95 backdrop-blur-sm shadow-md rounded-t-xl">
-              <div className="flex justify-between items-center p-2 sm:p-3 border-b border-orange-200">
-                <div> {/* Placeholder for left side if needed in future */} </div>
+              <div className="flex justify-end items-center p-2 sm:p-3 border-b border-orange-200">
                 <button
                     onClick={() => setAreControlsVisible(!areControlsVisible)}
                     className="py-2 px-4 bg-orange-400 text-white rounded-lg shadow-sm hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-1 transition-colors text-sm font-medium"
@@ -591,22 +658,23 @@ const App: React.FC = () => {
 
               {areControlsVisible && (
                   <div className="p-4 sm:p-6 space-y-5 border-t border-orange-200">
-                    <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-start items-center gap-3">
                       <button
                           onClick={() => setIsLanguageModalOpen(true)}
-                          className="w-full sm:w-auto order-2 sm:order-1 py-2.5 px-5 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors whitespace-nowrap text-md font-medium"
+                          className="w-full sm:w-auto py-2.5 px-5 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors whitespace-nowrap text-md font-medium"
                           aria-haspopup="dialog"
                       >
                         Change Language
                       </button>
                       <button
                           onClick={handleToggleAudioModal}
-                          className="w-full sm:w-auto order-1 sm:order-2 py-2.5 px-5 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors whitespace-nowrap text-md font-medium"
+                          className="w-full sm:w-auto py-2.5 px-5 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors whitespace-nowrap text-md font-medium"
                           aria-haspopup="dialog"
                           aria-expanded={isAudioModalOpen}
                       >
                         {audioModalButtonBaseText}{audioModalButtonStateText}
                       </button>
+
                     </div>
 
                     {/* Text Size Controls */}
@@ -657,8 +725,14 @@ const App: React.FC = () => {
           </main>
 
           <footer className="mt-6 md:mt-10 text-center text-gray-500 text-xs sm:text-sm w-full max-w-5xl">
+            <button
+                onClick={() => setIsAboutModalOpen(true)}
+                className="text-orange-600 hover:text-orange-700 hover:underline focus:outline-none focus:underline mb-2"
+                aria-haspopup="dialog"
+            >
+              About This App
+            </button>
             <p>&copy; {new Date().getFullYear()} Vishnu Sahasranamam Multilingual Viewer. All Rights Reserved.</p>
-            <p className="mt-1">A devotional offering to explore the sacred hymn.</p>
           </footer>
         </div>
         <LanguageSelectionModal
@@ -685,6 +759,10 @@ const App: React.FC = () => {
             handleMouseUpOnProgress={handleMouseUpOnProgress}
             formatTime={formatTime}
             playbackRates={playbackRates}
+        />
+        <AboutMeModal
+            isOpen={isAboutModalOpen}
+            onClose={() => setIsAboutModalOpen(false)}
         />
       </div>
   );
