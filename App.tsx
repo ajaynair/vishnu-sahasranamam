@@ -110,8 +110,6 @@ const AudioPlayerModal: React.FC<{
   duration: number;
   currentTime: number;
   playbackRate: number;
-  volume: number;
-  isMuted: boolean;
   isSeeking: boolean;
   togglePlayPause: () => void;
   handlePlaybackRateChange: (rate: number) => void;
@@ -119,14 +117,12 @@ const AudioPlayerModal: React.FC<{
   handleProgressChange: (event: ChangeEvent<HTMLInputElement>) => void;
   handleMouseDownOnProgress: () => void;
   handleMouseUpOnProgress: (event: React.MouseEvent<HTMLInputElement>) => void;
-  handleVolumeChange: (newVolume: number) => void;
-  toggleMute: () => void;
   formatTime: (time: number) => string;
   playbackRates: number[];
 }> = ({
-        isOpen, onClose, audioRef, isPlaying, duration, currentTime, playbackRate, volume, isMuted,
+        isOpen, onClose, audioRef, isPlaying, duration, currentTime, playbackRate,
         togglePlayPause, handlePlaybackRateChange, seekAudio, handleProgressChange,
-        handleMouseDownOnProgress, handleMouseUpOnProgress, handleVolumeChange, toggleMute, formatTime, playbackRates
+        handleMouseDownOnProgress, handleMouseUpOnProgress, formatTime, playbackRates
       }) => {
   if (!isOpen) return null;
 
@@ -152,7 +148,7 @@ const AudioPlayerModal: React.FC<{
     }
 
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]); // Added isOpen to dependencies to ensure focus happens when modal opens
+  }, [isOpen, onClose]);
 
   return (
       <div
@@ -262,53 +258,6 @@ const AudioPlayerModal: React.FC<{
                   </button>
               ))}
             </div>
-
-            {/* Volume Controls */}
-            <div className="flex items-center justify-center gap-2 sm:gap-3 pt-2">
-              <button
-                  onClick={toggleMute}
-                  aria-label={isMuted ? "Unmute" : "Mute"}
-                  className="p-2 bg-orange-200 text-orange-800 rounded-full shadow-sm hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors"
-                  disabled={!duration}
-              >
-                {isMuted || volume === 0 ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6L4.72 7.47M4.72 7.47C4.256 7.943 4.043 8.52 4.002 9.11L3.75 12l.252 2.89c.04 2.804 2.804.041 5.608.082L9 15V9l-2.25-2.25M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
-                    </svg>
-                )}
-              </button>
-              <button
-                  onClick={() => handleVolumeChange(volume - 0.1)}
-                  aria-label="Decrease volume"
-                  className="py-1.5 px-3 bg-orange-200 text-orange-800 rounded-lg shadow-sm hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors text-sm font-semibold"
-                  disabled={!duration}
-              >
-                Vol -
-              </button>
-              <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                  className="w-24 sm:w-32 h-3 bg-orange-100 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                  aria-label="Volume"
-                  disabled={!duration}
-              />
-              <button
-                  onClick={() => handleVolumeChange(volume + 0.1)}
-                  aria-label="Increase volume"
-                  className="py-1.5 px-3 bg-orange-200 text-orange-800 rounded-lg shadow-sm hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors text-sm font-semibold"
-                  disabled={!duration}
-              >
-                Vol +
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -324,14 +273,14 @@ const App: React.FC = () => {
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
   const [fontSize, setFontSize] = useState(1.25);
+  const [areControlsVisible, setAreControlsVisible] = useState(true);
+
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1.0);
-  const [volume, setVolume] = useState(0.75);
-  const [isMuted, setIsMuted] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
   const isSeekingRef = useRef(isSeeking);
 
@@ -344,20 +293,18 @@ const App: React.FC = () => {
       const headerHeight = stickyControlsRef.current?.offsetHeight || 80;
       const elementTop = sahasranamamTextRef.current.getBoundingClientRect().top + window.pageYOffset;
 
-      if (sahasranamamTextRef.current.getBoundingClientRect().top < headerHeight) {
+      if (sahasranamamTextRef.current.getBoundingClientRect().top < headerHeight ||
+          selectedLanguage.id !== (CONTENT_LANGUAGES.find(lang => lang.id === 'english') || CONTENT_LANGUAGES[0]).id ||
+          window.scrollY > (elementTop - headerHeight -20) + 5 ||
+          window.scrollY < (elementTop - headerHeight -20) - 5
+      ) {
         window.scrollTo({
-          top: elementTop - headerHeight - 20,
-          behavior: 'smooth'
-        });
-      } else if (selectedLanguage.id !== (CONTENT_LANGUAGES.find(lang => lang.id === 'english') || CONTENT_LANGUAGES[0]).id || window.scrollY > 0) {
-        window.scrollTo({
-          top: elementTop - headerHeight -20,
+          top: Math.max(0, elementTop - headerHeight - 20),
           behavior: 'smooth'
         });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLanguage]);
+  }, [selectedLanguage, areControlsVisible]);
 
 
   const formatTime = (timeInSeconds: number): string => {
@@ -395,8 +342,6 @@ const App: React.FC = () => {
       audio.addEventListener('pause', handlePause);
 
       audio.playbackRate = playbackRate;
-      audio.volume = isMuted ? 0 : volume;
-      audio.muted = isMuted;
 
       if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
         setAudioData();
@@ -411,7 +356,7 @@ const App: React.FC = () => {
         audio.removeEventListener('pause', handlePause);
       };
     }
-  }, [playbackRate, volume, isMuted]);
+  }, [playbackRate]);
 
 
   const handleToggleAudioModal = () => {
@@ -472,30 +417,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleVolumeChange = (newVolume: number) => {
-    const clampedVolume = Math.max(0, Math.min(1, newVolume));
-    setVolume(clampedVolume);
-    if (audioRef.current) {
-      audioRef.current.volume = clampedVolume;
-    }
-    if (clampedVolume > 0 && isMuted) {
-      setIsMuted(false);
-      if (audioRef.current) audioRef.current.muted = false;
-    }
-  };
-
-  const toggleMute = () => {
-    const newMutedState = !isMuted;
-    setIsMuted(newMutedState);
-    if (audioRef.current) {
-      audioRef.current.muted = newMutedState;
-    }
-    if (!newMutedState && volume === 0) {
-      setVolume(0.5);
-      if (audioRef.current) audioRef.current.volume = 0.5;
-    }
-  };
-
   const handleLanguageSelect = (language: LanguageOption) => {
     setSelectedLanguage(language);
     setIsLanguageModalOpen(false);
@@ -516,7 +437,7 @@ const App: React.FC = () => {
 
   const getLineEndingType = (lineStr: string): 'stanzaEnd' | 'halfVerseEnd' | 'verseEnd' | 'none' => {
     const trimmed = lineStr.trim();
-    if (trimmed.match(/॥\\s*\\d+\\s*॥$/)) return 'stanzaEnd';
+    if (trimmed.match(/॥\s*\d+\s*॥$/)) return 'stanzaEnd';
     if (trimmed.endsWith('।')) return 'halfVerseEnd';
     if (trimmed.endsWith('॥')) return 'verseEnd';
     return 'none';
@@ -524,8 +445,15 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (selectedLanguage.id !== 'english') {
-      return selectedLanguage.contentText;
+      // For non-English, split by escaped newline and render each part in a <p>
+      return selectedLanguage.contentText.split('\\n').map((line, index) => (
+          <p key={index} className="leading-relaxed my-1">
+            {line}
+          </p>
+      ));
     }
+
+    // English specific rendering
     const lines = selectedLanguage.contentText.split('\\n');
     return lines.map((line, index) => {
       const trimmedLine = line.trim();
@@ -536,19 +464,25 @@ const App: React.FC = () => {
         isDesignatedHeading = true;
       } else {
         const containsUnicodeLetters = /\p{L}/u.test(trimmedLine);
-        if (containsUnicodeLetters) {
+        if (containsUnicodeLetters && trimmedLine.length > 0) {
           const isSingleWord = !trimmedLine.includes(' ') && trimmedLine.length > 0;
-          const letterCharactersOnly = trimmedLine.replace(/[^\p{L}\s'-]/gu, '');
-          const allLettersAreUppercase = letterCharactersOnly.length > 0 && letterCharactersOnly.split(/\s+/).every(word => word === word.toUpperCase());
 
           if (isSingleWord) {
             isDesignatedHeading = true;
             headingDisplayLine = trimmedLine.toUpperCase();
-          } else if (allLettersAreUppercase && letterCharactersOnly.length > 0) {
-            isDesignatedHeading = true;
+          } else {
+            const letterCharactersOnly = trimmedLine.replace(/[^\p{L}\s'-]/gu, '');
+            if (letterCharactersOnly.length > 0) {
+              const words = letterCharactersOnly.split(/\s+/);
+              const allWordsAreUppercase = words.every(word => word.length === 0 || word === word.toUpperCase());
+              if (allWordsAreUppercase) {
+                isDesignatedHeading = true;
+              }
+            }
           }
         }
       }
+
 
       if (isDesignatedHeading) {
         if (headingDisplayLine === "") return null;
@@ -589,7 +523,7 @@ const App: React.FC = () => {
               if(prevContainsLetters) {
                 const prevIsSingleWord = !prevOriginalLineTrimmed.includes(' ') && prevOriginalLineTrimmed.length > 0;
                 const prevLetterCharsOnly = prevOriginalLineTrimmed.replace(/[^\p{L}\s'-]/gu, '');
-                const prevIsAllUpper = prevLetterCharsOnly.length > 0 && prevLetterCharsOnly.split(/\s+/).every(word => word === word.toUpperCase());
+                const prevIsAllUpper = prevLetterCharsOnly.length > 0 && prevLetterCharsOnly.split(/\s+/).every(word =>  word.length === 0 || word === word.toUpperCase());
                 if(prevIsSingleWord || (prevIsAllUpper && prevLetterCharsOnly.length > 0)) {
                   prevWasDesignatedHeadingByRule = true;
                 }
@@ -644,57 +578,69 @@ const App: React.FC = () => {
 
           <main className="w-full max-w-5xl bg-white rounded-xl shadow-xl">
             {/* Sticky Controls Panel */}
-            <div ref={stickyControlsRef} className="sticky top-0 z-30 bg-orange-50/90 backdrop-blur-sm shadow-md rounded-t-xl">
-              <div className="p-4 sm:p-6 space-y-5">
-                <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3">
-                  <button
-                      onClick={() => setIsLanguageModalOpen(true)}
-                      className="w-full sm:w-auto order-2 sm:order-1 py-2.5 px-5 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors whitespace-nowrap text-md font-medium"
-                      aria-haspopup="dialog"
-                  >
-                    Change Language
-                  </button>
-                  <button
-                      onClick={handleToggleAudioModal}
-                      className="w-full sm:w-auto order-1 sm:order-2 py-2.5 px-5 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors whitespace-nowrap text-md font-medium"
-                      aria-haspopup="dialog"
-                      aria-expanded={isAudioModalOpen}
-                  >
-                    {audioModalButtonBaseText}{audioModalButtonStateText}
-                  </button>
-                </div>
-
-                {/* Text Size Controls */}
-                <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
-                  <span className="text-lg font-medium text-gray-700 whitespace-nowrap">Text Size:</span>
-                  <div className="flex items-center gap-2 flex-grow w-full sm:w-auto">
-                    <button
-                        onClick={() => handleFontSizeChange(-0.1)}
-                        className="py-2 px-4 bg-orange-200 text-orange-800 rounded-lg shadow-sm hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors text-lg font-semibold"
-                        aria-label="Decrease text size"
-                    >
-                      A-
-                    </button>
-                    <input
-                        type="range"
-                        min="0.8"
-                        max="2.5"
-                        step="0.05"
-                        value={fontSize}
-                        onChange={handleFontSizeInputChange}
-                        className="w-full sm:w-48 h-3 bg-orange-100 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        aria-label="Adjust text size"
-                    />
-                    <button
-                        onClick={() => handleFontSizeChange(0.1)}
-                        className="py-2 px-4 bg-orange-200 text-orange-800 rounded-lg shadow-sm hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors text-lg font-semibold"
-                        aria-label="Increase text size"
-                    >
-                      A+
-                    </button>
-                  </div>
-                </div>
+            <div ref={stickyControlsRef} className="sticky top-0 z-30 bg-orange-50/95 backdrop-blur-sm shadow-md rounded-t-xl">
+              <div className="flex justify-between items-center p-2 sm:p-3 border-b border-orange-200">
+                <div> {/* Placeholder for left side if needed in future */} </div>
+                <button
+                    onClick={() => setAreControlsVisible(!areControlsVisible)}
+                    className="py-2 px-4 bg-orange-400 text-white rounded-lg shadow-sm hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-1 transition-colors text-sm font-medium"
+                >
+                  {areControlsVisible ? 'Hide Settings' : 'Settings'}
+                </button>
               </div>
+
+              {areControlsVisible && (
+                  <div className="p-4 sm:p-6 space-y-5 border-t border-orange-200">
+                    <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3">
+                      <button
+                          onClick={() => setIsLanguageModalOpen(true)}
+                          className="w-full sm:w-auto order-2 sm:order-1 py-2.5 px-5 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors whitespace-nowrap text-md font-medium"
+                          aria-haspopup="dialog"
+                      >
+                        Change Language
+                      </button>
+                      <button
+                          onClick={handleToggleAudioModal}
+                          className="w-full sm:w-auto order-1 sm:order-2 py-2.5 px-5 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors whitespace-nowrap text-md font-medium"
+                          aria-haspopup="dialog"
+                          aria-expanded={isAudioModalOpen}
+                      >
+                        {audioModalButtonBaseText}{audioModalButtonStateText}
+                      </button>
+                    </div>
+
+                    {/* Text Size Controls */}
+                    <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+                      <span className="text-lg font-medium text-gray-700 whitespace-nowrap">Text Size:</span>
+                      <div className="flex items-center gap-2 flex-grow w-full sm:w-auto">
+                        <button
+                            onClick={() => handleFontSizeChange(-0.1)}
+                            className="py-2 px-4 bg-orange-200 text-orange-800 rounded-lg shadow-sm hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors text-lg font-semibold"
+                            aria-label="Decrease text size"
+                        >
+                          A-
+                        </button>
+                        <input
+                            type="range"
+                            min="0.8"
+                            max="2.5"
+                            step="0.05"
+                            value={fontSize}
+                            onChange={handleFontSizeInputChange}
+                            className="w-full sm:w-48 h-3 bg-orange-100 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                            aria-label="Adjust text size"
+                        />
+                        <button
+                            onClick={() => handleFontSizeChange(0.1)}
+                            className="py-2 px-4 bg-orange-200 text-orange-800 rounded-lg shadow-sm hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors text-lg font-semibold"
+                            aria-label="Increase text size"
+                        >
+                          A+
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+              )}
             </div>
 
             {/* Sahasranamam Text */}
@@ -730,8 +676,6 @@ const App: React.FC = () => {
             duration={duration}
             currentTime={currentTime}
             playbackRate={playbackRate}
-            volume={volume}
-            isMuted={isMuted}
             isSeeking={isSeeking}
             togglePlayPause={togglePlayPause}
             handlePlaybackRateChange={handlePlaybackRateChange}
@@ -739,8 +683,6 @@ const App: React.FC = () => {
             handleProgressChange={handleProgressChange}
             handleMouseDownOnProgress={handleMouseDownOnProgress}
             handleMouseUpOnProgress={handleMouseUpOnProgress}
-            handleVolumeChange={handleVolumeChange}
-            toggleMute={toggleMute}
             formatTime={formatTime}
             playbackRates={playbackRates}
         />
