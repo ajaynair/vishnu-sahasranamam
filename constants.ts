@@ -121,6 +121,7 @@ export interface UITranslationStrings {
   aboutThisApp: string;
   copyrightText: string;
   scrollToTop: string;
+  jumpToStotram: string; // New string for jump button
 }
 
 export interface LanguageUITranslations {
@@ -154,6 +155,7 @@ export const UI_TRANSLATIONS: LanguageUITranslations = {
     aboutThisApp: "About This App",
     copyrightText: "© {YEAR} Vishnu Sahasranamam Multilingual Viewer. All Rights Reserved.",
     scrollToTop: "Scroll to Top",
+    jumpToStotram: "Jump to Stotram",
   },
   malayalam: {
     selectLanguageTitle: "ഭാഷ തിരഞ്ഞെടുക്കുക",
@@ -181,6 +183,7 @@ export const UI_TRANSLATIONS: LanguageUITranslations = {
     aboutThisApp: "ഈ ആപ്പിനെക്കുറിച്ച്",
     copyrightText: "© {YEAR} വിഷ്ണു സഹസ്രനാമ ബഹുഭാഷാ ദർശിനി. എല്ലാ അവകാശങ്ങളും നിക്ഷിപ്തം.",
     scrollToTop: "മുകളിലേക്ക് പോകുക",
+    jumpToStotram: "സ്തോത്രത്തിലേക്ക് പോകുക",
   }
   // Add other languages here, e.g., devanagari, tamil, etc.
   // For example, a partial Devanagari translation:

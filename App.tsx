@@ -121,10 +121,12 @@ const AudioPlayerModal: React.FC<{
   formatTime: (time: number) => string;
   playbackRates: number[];
   uiStrings: UITranslationStrings;
+  onJumpToStotram: () => void; // New prop
 }> = ({
         isOpen, onClose, audioRef, isPlaying, duration, currentTime, playbackRate,
         togglePlayPause, handlePlaybackRateChange, seekAudio, handleProgressChange,
-        handleMouseDownOnProgress, handleMouseUpOnProgress, formatTime, playbackRates, uiStrings
+        handleMouseDownOnProgress, handleMouseUpOnProgress, formatTime, playbackRates, uiStrings,
+        onJumpToStotram // New prop
       }) => {
   if (!isOpen) return null;
 
@@ -256,6 +258,18 @@ const AudioPlayerModal: React.FC<{
                   </button>
               ))}
             </div>
+            <button
+                onClick={onJumpToStotram}
+                className="w-full mt-3 py-2.5 px-4 bg-orange-200 text-orange-700 rounded-lg shadow-sm hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-orange-50 transition-colors text-sm font-medium flex items-center justify-center"
+                disabled={!duration}
+                aria-label={uiStrings.jumpToStotram}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 5.25v13.5" /> {/* Changed M17.25 to M19.5 for better visual separation of the "skip to" bar */}
+              </svg>
+              {uiStrings.jumpToStotram}
+            </button>
           </div>
         </div>
       </div>
@@ -522,6 +536,8 @@ const App: React.FC = () => {
   const seekAudio = (amount: number) => {
     if (audioRef.current) {
       audioRef.current.currentTime += amount;
+      // Update UI immediately
+      setCurrentTime(audioRef.current.currentTime);
     }
   };
 
@@ -561,6 +577,14 @@ const App: React.FC = () => {
       base += uiStrings.audioStatusPaused;
     }
     return base;
+  };
+
+  const handleJumpToStotram = () => {
+    if (audioRef.current) {
+      const targetTime = 6 * 60 + 40; // 400 seconds
+      audioRef.current.currentTime = targetTime;
+      setCurrentTime(targetTime); // Update UI immediately
+    }
   };
 
 
@@ -726,6 +750,7 @@ const App: React.FC = () => {
             formatTime={formatTime}
             playbackRates={playbackRates}
             uiStrings={uiStrings}
+            onJumpToStotram={handleJumpToStotram}
         />
         <AboutMeModal
             isOpen={isAboutModalOpen}
