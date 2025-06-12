@@ -24,6 +24,12 @@ const SPECIFIC_ENGLISH_HEADERS = new Set([
   "Sañjaya Uvācha"
 ]);
 
+const LS_LANG_ID_KEY = 'vishnuSahasranamamLangId';
+const LS_FONT_SIZE_KEY = 'vishnuSahasranamamFontSize';
+const LS_PLAYBACK_RATE_KEY = 'vishnuSahasranamamPlaybackRate';
+const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];
+
+
 const LanguageSelectionModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -119,14 +125,13 @@ const AudioPlayerModal: React.FC<{
   handleMouseDownOnProgress: () => void;
   handleMouseUpOnProgress: (event: React.MouseEvent<HTMLInputElement>) => void;
   formatTime: (time: number) => string;
-  playbackRates: number[];
   uiStrings: UITranslationStrings;
-  onJumpToStotram: () => void; // New prop
+  onJumpToStotram: () => void;
 }> = ({
         isOpen, onClose, audioRef, isPlaying, duration, currentTime, playbackRate,
         togglePlayPause, handlePlaybackRateChange, seekAudio, handleProgressChange,
-        handleMouseDownOnProgress, handleMouseUpOnProgress, formatTime, playbackRates, uiStrings,
-        onJumpToStotram // New prop
+        handleMouseDownOnProgress, handleMouseUpOnProgress, formatTime, uiStrings,
+        onJumpToStotram
       }) => {
   if (!isOpen) return null;
 
@@ -245,7 +250,7 @@ const AudioPlayerModal: React.FC<{
 
             <div className="flex items-center justify-center flex-wrap gap-1.5 sm:gap-2 pt-1">
               <span className="text-base text-gray-700 mr-1.5 font-medium">{uiStrings.speedLabel}</span>
-              {playbackRates.map(rate => (
+              {PLAYBACK_RATES.map(rate => (
                   <button
                       key={rate}
                       onClick={() => handlePlaybackRateChange(rate)}
@@ -266,7 +271,7 @@ const AudioPlayerModal: React.FC<{
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 5.25v13.5" /> {/* Changed M17.25 to M19.5 for better visual separation of the "skip to" bar */}
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 5.25v13.5" />
               </svg>
               {uiStrings.jumpToStotram}
             </button>
@@ -344,11 +349,39 @@ const AboutMeModal: React.FC<{ isOpen: boolean; onClose: () => void; uiStrings: 
 
 
 const App: React.FC = () => {
-  const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>(CONTENT_LANGUAGES[0]);
-  const [uiStrings, setUiStrings] = useState<UITranslationStrings>(getUITranslations(CONTENT_LANGUAGES[0].id));
-  const [fontSize, setFontSize] = useState<number>(1.25); // Default: 1.25rem (20px)
-  const [areControlsVisible, setAreControlsVisible] = useState<boolean>(true);
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>(() => {
+    const storedLangId = localStorage.getItem(LS_LANG_ID_KEY);
+    if (storedLangId) {
+      const langOption = CONTENT_LANGUAGES.find(lang => lang.id === storedLangId);
+      if (langOption) return langOption;
+    }
+    return CONTENT_LANGUAGES[0];
+  });
 
+  const [fontSize, setFontSize] = useState<number>(() => {
+    const storedFontSize = localStorage.getItem(LS_FONT_SIZE_KEY);
+    if (storedFontSize) {
+      const parsedSize = parseFloat(storedFontSize);
+      if (!isNaN(parsedSize)) {
+        return Math.max(0.8, Math.min(2.5, parsedSize));
+      }
+    }
+    return 1.25;
+  });
+
+  const [playbackRate, setPlaybackRate] = useState<number>(() => {
+    const storedPlaybackRate = localStorage.getItem(LS_PLAYBACK_RATE_KEY);
+    if (storedPlaybackRate) {
+      const parsedRate = parseFloat(storedPlaybackRate);
+      if (PLAYBACK_RATES.includes(parsedRate)) {
+        return parsedRate;
+      }
+    }
+    return 1;
+  });
+
+  const [uiStrings, setUiStrings] = useState<UITranslationStrings>(getUITranslations(selectedLanguage.id));
+  const [areControlsVisible, setAreControlsVisible] = useState<boolean>(true);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
   const [isAudioPlayerModalOpen, setIsAudioPlayerModalOpen] = useState<boolean>(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState<boolean>(false);
@@ -357,7 +390,6 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [isSeeking, setIsSeeking] = useState<boolean>(false);
   const isSeekingRef = useRef<boolean>(false);
 
@@ -365,16 +397,34 @@ const App: React.FC = () => {
   const mainContentCardRef = useRef<HTMLDivElement>(null);
   const isMountedRef = useRef<boolean>(false);
   const previousLangIdRef = useRef<string>(selectedLanguage.id);
-
-
   const [showScrollToTopButton, setShowScrollToTopButton] = useState<boolean>(false);
 
-  const playbackRates = [0.75, 1, 1.25, 1.5, 2];
+  useEffect(() => {
+    localStorage.setItem(LS_LANG_ID_KEY, selectedLanguage.id);
+    setUiStrings(getUITranslations(selectedLanguage.id));
+  }, [selectedLanguage]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_FONT_SIZE_KEY, fontSize.toString());
+  }, [fontSize]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_PLAYBACK_RATE_KEY, playbackRate.toString());
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate]);
+
 
   useEffect(() => {
     if (audioRef.current) {
       const audio = audioRef.current;
-      const handleLoadedMetadata = () => setDuration(audio.duration);
+      audio.playbackRate = playbackRate; // Apply initial or loaded playback rate
+
+      const handleLoadedMetadata = () => {
+        setDuration(audio.duration);
+        audio.playbackRate = playbackRate; // Re-apply in case it changed
+      }
       const handleTimeUpdate = () => {
         if (!isSeekingRef.current) {
           setCurrentTime(audio.currentTime);
@@ -401,7 +451,7 @@ const App: React.FC = () => {
         audio.removeEventListener('ended', handleEnded);
       };
     }
-  }, []);
+  }, [playbackRate]); // Also depend on playbackRate to re-setup if it changes early
 
 
   useEffect(() => {
@@ -410,7 +460,7 @@ const App: React.FC = () => {
       window.scrollTo({ top: 0, behavior: 'instant' });
     });
     isMountedRef.current = true;
-    previousLangIdRef.current = selectedLanguage.id;
+    previousLangIdRef.current = selectedLanguage.id; // Initialize with current lang
   }, []);
 
 
@@ -420,7 +470,7 @@ const App: React.FC = () => {
     if (previousLangIdRef.current !== selectedLanguage.id) {
       const stickyControlsHeight = stickyControlsRef.current.offsetHeight;
       const cardTop = mainContentCardRef.current.getBoundingClientRect().top + window.scrollY;
-      const targetScrollY = cardTop - stickyControlsHeight - 20; // 20px padding below sticky controls
+      const targetScrollY = cardTop - stickyControlsHeight - 20;
 
       window.scrollTo({
         top: Math.max(0, targetScrollY),
@@ -430,10 +480,6 @@ const App: React.FC = () => {
     }
   }, [selectedLanguage, areControlsVisible]);
 
-
-  useEffect(() => {
-    setUiStrings(getUITranslations(selectedLanguage.id));
-  }, [selectedLanguage]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -505,7 +551,8 @@ const App: React.FC = () => {
 
 
   const handleFontSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFontSize(parseFloat(event.target.value));
+    const newSize = parseFloat(event.target.value);
+    setFontSize(Math.max(0.8, Math.min(2.5, newSize)));
   };
 
   const adjustFontSize = (amount: number) => {
@@ -527,16 +574,12 @@ const App: React.FC = () => {
   };
 
   const handlePlaybackRateChange = (rate: number) => {
-    if (audioRef.current) {
-      audioRef.current.playbackRate = rate;
-      setPlaybackRate(rate);
-    }
+    setPlaybackRate(rate);
   };
 
   const seekAudio = (amount: number) => {
     if (audioRef.current) {
       audioRef.current.currentTime += amount;
-      // Update UI immediately
       setCurrentTime(audioRef.current.currentTime);
     }
   };
@@ -583,7 +626,7 @@ const App: React.FC = () => {
     if (audioRef.current) {
       const targetTime = 6 * 60 + 40; // 400 seconds
       audioRef.current.currentTime = targetTime;
-      setCurrentTime(targetTime); // Update UI immediately
+      setCurrentTime(targetTime);
     }
   };
 
@@ -748,7 +791,6 @@ const App: React.FC = () => {
             handleMouseDownOnProgress={handleMouseDownOnProgress}
             handleMouseUpOnProgress={handleMouseUpOnProgress}
             formatTime={formatTime}
-            playbackRates={playbackRates}
             uiStrings={uiStrings}
             onJumpToStotram={handleJumpToStotram}
         />
